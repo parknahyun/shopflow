@@ -413,7 +413,7 @@
 <path fill="none" stroke="#29235c" stroke-width="3" d="M3979.79,-5033.81C4099.56,-5033.81 4125.85,-5090.46 4240.33,-5093.67"/>
 <polygon fill="#29235c" stroke="#29235c" stroke-width="3" points="4240.53,-5097.17 4250.57,-5093.81 4240.62,-5090.18 4240.53,-5097.17"/>
 <text text-anchor="middle" x="4259.47" y="-5103.41" font-family="Helvetica,sans-Serif" font-size="32.00" fill="#29235c">1</text>
-<text text-anchor="middle" x="3970.89" y="-5043.41" font-family="Helvetica,sans-Serif" font-size="32.00" fill="#29235c">1</text>
+<text text-anchor="middle" x="3986.01" y="-5043.41" font-family="Helvetica,sans-Serif" font-size="32.00" fill="#29235c">*</text>
 </g>
 <!-- seller_document -->
 <g id="seller_document" class="node">
@@ -663,7 +663,7 @@
 <path fill="none" stroke="#29235c" stroke-width="3" d="M1356.65,-5803.81C1548.27,-5803.81 1594.72,-5861.72 1781.23,-5863.76"/>
 <polygon fill="#29235c" stroke="#29235c" stroke-width="3" points="1781.36,-5867.26 1791.38,-5863.81 1781.4,-5860.26 1781.36,-5867.26"/>
 <text text-anchor="middle" x="1782.49" y="-5873.41" font-family="Helvetica,sans-Serif" font-size="32.00" fill="#29235c">1</text>
-<text text-anchor="middle" x="1365.55" y="-5813.41" font-family="Helvetica,sans-Serif" font-size="32.00" fill="#29235c">1</text>
+<text text-anchor="middle" x="1362.87" y="-5813.41" font-family="Helvetica,sans-Serif" font-size="32.00" fill="#29235c">*</text>
 </g>
 <!-- stock_reservation -->
 <g id="stock_reservation" class="node">
@@ -1101,7 +1101,7 @@
 <path fill="none" stroke="#29235c" stroke-width="3" d="M1356.65,-2047.81C1523.78,-2047.81 1502.17,-2205.21 1568.04,-2358.81 1631.35,-2506.45 1563.27,-3056.47 1714.12,-3080.03"/>
 <polygon fill="#29235c" stroke="#29235c" stroke-width="3" points="1714.14,-3083.54 1724.38,-3080.81 1714.68,-3076.56 1714.14,-3083.54"/>
 <text text-anchor="middle" x="1715.49" y="-3052.01" font-family="Helvetica,sans-Serif" font-size="32.00" fill="#29235c">1</text>
-<text text-anchor="middle" x="1365.55" y="-2019.01" font-family="Helvetica,sans-Serif" font-size="32.00" fill="#29235c">1</text>
+<text text-anchor="middle" x="1362.87" y="-2019.01" font-family="Helvetica,sans-Serif" font-size="32.00" fill="#29235c">*</text>
 </g>
 <!-- payment -->
 <g id="payment" class="node">

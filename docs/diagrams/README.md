@@ -14,6 +14,7 @@
 | `sub-order-states.puml` | `sub-order-states.png` | 하위 주문 상태 전이 |
 | `data-model-class.puml` | `data-model-class.png` | 데이터 모델 클래스 다이어그램(바운디드 컨텍스트) |
 | `schema.dbml` | `schema-erd.png`, `schema-erd.svg` | 스키마 ERD |
+| `schema.dbml` | `../schema.sql` | PostgreSQL 참조 DDL (설계 단계용, 마이그레이션 아님) |
 
 ## 준비물
 
@@ -68,7 +69,23 @@ powershell -NoProfile -ExecutionPolicy Bypass -File docs\diagrams\render-erd.ps1
 - 옵션: `-Dbml`(입력 파일), `-OutDir`(출력 폴더), `-Name`(출력 이름), `-Edge`(엣지 경로), `-Width`(PNG 가로 픽셀).
 - 컬럼에 컨텍스트 사이 참조를 새로 추가할 때는 컬럼 설명을 `식별자 참조: 계정 컨텍스트의 seller_profile.id (외래키 아님)` 형식으로 쓴다. 이 형식을 따라야 관계선이 자동으로 그려진다.
 
-DBML 문법을 검사하거나 SQL로 바꾸려면 DBML 공식 도구(`@dbml/core`)를 쓸 수 있다. 명령줄 도구(`@dbml/cli`)는 윈도우에서 긴 경로나 한글 경로를 만나면 오류가 날 수 있어, 그럴 때는 `@dbml/core`의 `Parser`와 `exporter`를 노드 스크립트에서 직접 호출한다.
+- 렌더러가 읽지 못하는 검사 제약(`checks`) 블록은 보기용 복사본에서 빼므로 그림에는 나오지 않는다.
+
+## SQL(참조 DDL) 만들기
+
+`schema.dbml`에서 PostgreSQL용 `CREATE TABLE` 문을 만든다. 저장소 루트에서 실행한다.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File docs\diagrams\generate-sql.ps1
+```
+
+- 결과는 `specs/001-multiseller-commerce-core/schema.sql`이다. 직접 고치지 않고 DBML을 고쳐 다시 만든다.
+- 이 파일은 설계 단계의 참조용이며 **마이그레이션이 아니다.** 실제 스키마 변경은 구현 단계에서 플라이웨이 마이그레이션으로 한다(헌법 기술 스택 섹션).
+- DBML의 `checks` 블록(음수 금지, 법인 정보 필수 여부 등)은 `CHECK` 제약으로 변환된다.
+- DBML로 표현할 수 없는 제약(성공 결제는 주문당 하나인 부분 유일 인덱스)은 `generate-sql.ps1` 안의 `$extra`에 직접 적어 끝에 붙인다. 이런 제약을 늘릴 때는 그곳에 추가한다.
+- 변환기(`@dbml/core`)는 임시 폴더에 설치했다가 지우므로 프로젝트에는 남지 않는다.
+- 명령줄 도구(`@dbml/cli`)는 윈도우에서 경로 문제로 오류가 나서 쓰지 않고, 변환 라이브러리를 노드로 직접 호출한다.
+- 만들어진 SQL을 실제 데이터베이스에 적용해 검증하는 일은 이 스크립트에 포함되지 않는다. 구현 단계의 마이그레이션 작성 때 포스트그레스큐엘에서 확인한다.
 
 ## 문제 해결
 

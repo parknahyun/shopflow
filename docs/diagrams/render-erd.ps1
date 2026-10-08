@@ -50,6 +50,8 @@ try {
     $view = [regex]::Replace($view, ",\s*name:\s*'[^']*'", "")
     $view = [regex]::Replace($view, "\[name:\s*'[^']*'\]", "")
     $view = [regex]::Replace($view, " \[\s*\]", "")
+    # 렌더러가 읽지 못하는 검사 제약(checks) 블록을 뺀다
+    $view = [regex]::Replace($view, "(?ms)^[ \t]*checks[ \t]*\{.*?^[ \t]*\}[ \t]*\r?\n", "")
     $view = $view + "`n// 보기 전용: 컨텍스트 사이 식별자 참조`n" + ($refs -join "`n") + "`n"
     $viewPath = Join-Path $tmp "view.dbml"
     [IO.File]::WriteAllText($viewPath, $view, $utf8)
@@ -59,9 +61,12 @@ try {
     $svgPath = Join-Path $tmp "view.svg"
     Push-Location $tmp
     try {
-        & cmd /c "npm exec --yes --package=@softwaretechnik/dbml-renderer -- dbml-renderer -i view.dbml -o view.svg 2>&1" | Out-Null
+        $renderOut = & cmd /c "npm exec --yes --package=@softwaretechnik/dbml-renderer -- dbml-renderer -i view.dbml -o view.svg 2>&1"
     } finally { Pop-Location }
-    if (-not (Test-Path $svgPath)) { throw "SVG를 만들지 못했습니다. npm 설치와 네트워크를 확인하세요." }
+    if (-not (Test-Path $svgPath)) {
+        $renderOut | Select-Object -First 10 | ForEach-Object { Write-Host $_.ToString().Substring(0, [Math]::Min(200, $_.ToString().Length)) }
+        throw "SVG를 만들지 못했습니다. 위 출력과 npm 설치, 네트워크를 확인하세요."
+    }
 
     # 3. PNG로 캡처하기 (SVG 크기에 맞춰 창 크기를 정한다)
     $svg = [IO.File]::ReadAllText($svgPath, [Text.Encoding]::UTF8)
