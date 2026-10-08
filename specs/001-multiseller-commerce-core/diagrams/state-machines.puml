@@ -52,9 +52,9 @@ state "하위 주문 상태 (배송 상태)" as M4 {
   state "배송 완료" as sub_delivered
   state "구매 확정" as sub_confirmed
   state "취소" as sub_cancelled
-  [*] --> sub_before : 하위 주문 생성
-  sub_before --> sub_shipping : 판매자 송장 입력
-  sub_before --> sub_cancelled : 고객 취소(전액 환불)
+  [*] --> sub_before : 결제 시작(주문과 함께 생성)
+  sub_before --> sub_shipping : 판매자 송장 입력\n(주문 확정 후)
+  sub_before --> sub_cancelled : 고객 취소(전액 환불),\n결제 실패·만료(환불 없음)
   sub_shipping --> sub_delivered : 판매자 배송 완료 처리
   sub_delivered --> sub_confirmed : 고객 구매 확정 또는\n7일 경과
   sub_confirmed --> [*]
@@ -106,6 +106,8 @@ pay_succeeded -[#1f6feb,dashed]-> ord_confirmed : 결제 성공
 pay_succeeded -[#1f6feb,dashed]-> stk_confirmed : 결제 성공
 pay_failed -[#1f6feb,dashed]-> ord_cancelled : 결제 실패
 pay_expired -[#1f6feb,dashed]-> ord_cancelled : 만료
+pay_failed -[#1f6feb,dashed]-> sub_cancelled : 하위 주문 취소
+pay_expired -[#1f6feb,dashed]-> sub_cancelled : 하위 주문 취소
 pay_failed -[#1f6feb,dashed]-> stk_released : 재고 반환
 pay_expired -[#1f6feb,dashed]-> stk_released : 재고 반환
 sub_cancelled -[#1f6feb,dashed]-> stk_released : 취소 시 재고 가산\n(상태는 바뀌지 않음)
@@ -120,6 +122,8 @@ note bottom of M4
   취소와 발송이 동시에 오면 `WHERE 상태 = 현재 상태`
   조건부 갱신으로 먼저 처리된 요청만 반영한다.
   구매 확정 시각이 이후 정산의 기준이다.
+  주문이 확정되기 전의 하위 주문은 판매자에게
+  보이지 않는다. (FR-011a)
 end note
 
 note bottom of M6
@@ -135,8 +139,6 @@ end note
 
 note as N_Etc
   계정의 상태 값은 이번 범위에서 정하지 않았다(활성만 사용).
-  하위 주문 생성 시점은 데이터 모델과 유즈케이스(결제 시작)와
-  명세 FR-011(결제 성공)이 달라 정리가 필요하다.
 end note
 
 legend right
