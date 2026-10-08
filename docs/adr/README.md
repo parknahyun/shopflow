@@ -22,6 +22,7 @@
 | [0004](0004-seller-sub-orders.md) | 판매자별 하위 주문 구조 | 승인됨 | #3 |
 | [0005](0005-settlement-basis-purchase-confirmation.md) | 정산 기준 시점: 구매 확정 | 승인됨 | #3 |
 | [0006](0006-technology-stack-and-structure.md) | 기본 기술 스택과 구조 | 승인됨 | #3 |
+| [0007](0007-context-deployment-strategy.md) | 컨텍스트별 배포 목표와 단계적 전환 | 승인됨 | #3, #4 |
 
 ## 새 ADR 작성 방법
 
