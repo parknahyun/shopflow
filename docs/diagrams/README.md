@@ -56,6 +56,7 @@ java "-Dfile.encoding=UTF-8" -jar C:\tools\plantuml\plantuml-1.2026.8.jar `
 ```
 
 - 한 파일만 다시 만들려면 마지막 줄을 그 파일 경로로 바꾼다.
+- 컴포넌트 다이어그램(`c4-component.puml`)은 가로가 4096 픽셀을 넘어서 기본 설정으로는 오른쪽이 잘린다. 명령에 `"-DPLANTUML_LIMIT_SIZE=12000"`을 `-jar` 앞에 더해 크기 제한을 늘린다.
 - C4 다이어그램(`c4-*.puml`)은 플랜트유엠엘에 내장된 C4 라이브러리(`!include <C4/C4_Container>` 등)를 쓰므로 인터넷이 필요 없다. 기본 영문 범례와 영문 표시가 나오지 않도록 `HIDE_STEREOTYPE()`를 쓰고 범례는 주석 상자로 직접 적었다.
 - `-SdefaultFontName`과 `-Sdpi`는 한글 글꼴과 해상도를 정한다. 원본 파일에는 넣지 않았으므로 항상 명령에서 지정한다.
 - 변환 후 이미지를 열어 한글이 깨지지 않았는지 확인한다.
