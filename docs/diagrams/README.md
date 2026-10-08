@@ -14,6 +14,10 @@
 | `sub-order-states.puml` | `sub-order-states.png` | 하위 주문 상태 전이 |
 | `state-machines.puml` | `state-machines.png` | 이번 기능의 모든 상태머신(입점, 상품, 주문, 하위 주문, 재고 확보, 결제, 멱등키)과 개체 사이 연동 |
 | `sequence-order-to-settlement.puml` | `sequence-order-to-settlement.png` | 주문에서 정산까지 시퀀스(정산은 다음 기능의 초안) |
+| `c4-context.puml` | `c4-context.png` | C4 1단계: 시스템 컨텍스트(사람, 샵플로우, 결제 대행사) |
+| `c4-container.puml` | `c4-container.png` | C4 2단계: 컨테이너, 첫 구현(모듈형 모놀리스, 데이터베이스, 파일 저장소) |
+| `c4-container-target.puml` | `c4-container-target.png` | C4 2단계: 컨테이너, 목표 구조(컨텍스트별 인스턴스, ADR-0007) |
+| `c4-component.puml` | `c4-component.png` | C4 3단계: 컴포넌트, 애플리케이션 내부(컨텍스트별 서비스, 포트, 예약 작업) |
 | `data-model-class.puml` | `data-model-class.png` | 데이터 모델 클래스 다이어그램(바운디드 컨텍스트) |
 | `schema.dbml` | `schema-erd.png`, `schema-erd.svg` | 스키마 ERD |
 | `schema.dbml` | `schema-erd-ie.puml`, `schema-erd-ie.png` | 스키마 ERD(정보공학 표기, 관계의 선택/필수와 컬럼의 NULL 허용 여부 표시) |
@@ -52,6 +56,7 @@ java "-Dfile.encoding=UTF-8" -jar C:\tools\plantuml\plantuml-1.2026.8.jar `
 ```
 
 - 한 파일만 다시 만들려면 마지막 줄을 그 파일 경로로 바꾼다.
+- C4 다이어그램(`c4-*.puml`)은 플랜트유엠엘에 내장된 C4 라이브러리(`!include <C4/C4_Container>` 등)를 쓰므로 인터넷이 필요 없다. 기본 영문 범례와 영문 표시가 나오지 않도록 `HIDE_STEREOTYPE()`를 쓰고 범례는 주석 상자로 직접 적었다.
 - `-SdefaultFontName`과 `-Sdpi`는 한글 글꼴과 해상도를 정한다. 원본 파일에는 넣지 않았으므로 항상 명령에서 지정한다.
 - 변환 후 이미지를 열어 한글이 깨지지 않았는지 확인한다.
 
