@@ -24,10 +24,8 @@ rectangle "샵플로우" {
 
   package "구매" {
     usecase "장바구니 관리\n(FR-006)" as UC_Cart
-    usecase "결제하여 주문\n(FR-007~FR-011)" as UC_Checkout
-    usecase "재고 선점\n(FR-007, FR-008)" as UC_Reserve
-    usecase "결제 검증\n(금액 대조, 멱등 처리)\n(FR-009, FR-010)" as UC_Verify
-    usecase "입금 대기 결제\n(가상계좌)\n(FR-008a)" as UC_Deposit
+    usecase "즉시 결제로 주문\n(FR-007~FR-011)" as UC_Checkout
+    usecase "입금 대기로 주문\n(가상계좌)\n(FR-008a)" as UC_Deposit
     usecase "내 주문 조회\n(FR-014)" as UC_MyOrders
     usecase "발송 전 하위 주문 취소\n(전액 환불)\n(FR-013a, FR-013b)" as UC_Cancel
     usecase "구매 확정\n(FR-012)" as UC_Confirm
@@ -59,6 +57,7 @@ Visitor --> UC_Browse
 Visitor --> UC_Signup
 Customer --> UC_Cart
 Customer --> UC_Checkout
+Customer --> UC_Deposit
 Customer --> UC_MyOrders
 Customer --> UC_Cancel
 Customer --> UC_Confirm
@@ -76,18 +75,18 @@ Admin --> UC_Approve
 Admin --> UC_Review
 
 ' 외부 시스템과 자동 처리
-UC_Verify --> PG
+UC_Checkout --> PG
 UC_Deposit --> PG
 UC_Cancel --> PG : 환불 요청
 Timer --> UC_Expire
 Timer --> UC_DepositExpire
 Timer --> UC_AutoConfirm
 
-' 포함과 확장 관계
-UC_Checkout .> UC_Reserve : <<include>>
-UC_Checkout .> UC_Verify : <<include>>
-UC_Deposit .> UC_Checkout : <<extend>>
-UC_AutoConfirm .> UC_Confirm : <<extend>>
+note right of UC_Checkout
+  재고 선점과 결제 검증(금액 대조, 멱등 처리)은
+  이 유즈케이스 안에서 함께 처리한다.
+  (FR-007~FR-010)
+end note
 
 note right of UC_Cancel
   발송된 하위 주문은 취소할 수 없다.
