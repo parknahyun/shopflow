@@ -14,6 +14,7 @@
 | `sub-order-states.puml` | `sub-order-states.png` | 하위 주문 상태 전이 |
 | `data-model-class.puml` | `data-model-class.png` | 데이터 모델 클래스 다이어그램(바운디드 컨텍스트) |
 | `schema.dbml` | `schema-erd.png`, `schema-erd.svg` | 스키마 ERD |
+| `schema.dbml` | `schema-erd-ie.puml`, `schema-erd-ie.png` | 스키마 ERD(정보공학 표기, 관계의 선택/필수와 컬럼의 NULL 허용 여부 표시) |
 | `schema.dbml` | `../schema.sql` | PostgreSQL 참조 DDL (설계 단계용, 마이그레이션 아님) |
 
 ## 준비물
@@ -70,6 +71,23 @@ powershell -NoProfile -ExecutionPolicy Bypass -File docs\diagrams\render-erd.ps1
 - 컬럼에 컨텍스트 사이 참조를 새로 추가할 때는 컬럼 설명을 `식별자 참조: 계정 컨텍스트의 seller_profile.id (외래키 아님)` 형식으로 쓴다. 이 형식을 따라야 관계선이 자동으로 그려진다.
 
 - 렌더러가 읽지 못하는 검사 제약(`checks`) 블록은 보기용 복사본에서 빼므로 그림에는 나오지 않는다.
+
+## 관계의 선택/필수를 표시한 ERD 만들기
+
+위의 `schema-erd.png`는 DBML 렌더러가 그려서 관계가 `1`과 `*`로만 나오고 "없을 수 있는지(0..1)"는 표시하지 못한다. 선택/필수까지 보려면 정보공학 표기(까마귀발)로 그리는 이 ERD를 쓴다.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File docs\diagrams\render-erd-ie.ps1 -PlantumlJar C:\tools\plantuml\plantuml-1.2026.8.jar
+```
+
+- 결과는 `schema-erd-ie.puml`(원본)과 `schema-erd-ie.png`이며 `specs/001-multiseller-commerce-core/diagrams/`에 만들어진다. `.puml`은 스크립트가 만드는 파일이므로 직접 고치지 않는다.
+- 옵션: `-Dbml`, `-OutDir`, `-Name`, `-PlantumlJar`(기본값 `C:\tools\plantuml\plantuml-1.2026.8.jar`), `-GraphvizDot`.
+- 변환은 `dbml-to-ie-puml.js`가 한다. 읽는 규칙은 다음과 같다.
+  - 컬럼 앞의 점(●)은 필수(`NOT NULL`)이고, 없으면 `NULL`을 허용한다.
+  - 부모 쪽 기호는 외래키 컬럼이 `NOT NULL`이면 `||`(정확히 하나), `NULL`을 허용하면 `|o`(없거나 하나)다.
+  - 자식 쪽 기호는 외래키 컬럼에 유일 제약이 있으면 `o|`(없거나 하나), 없으면 `o{`(0개 이상)이다.
+  - 실선은 외래키 관계, 점선은 컨텍스트 사이 식별자 참조(외래키 없음)다. 점선은 컬럼 설명의 `식별자 참조: … 테이블.컬럼` 형식에서 읽는다.
+- "자식이 1개 이상이어야 한다" 같은 최소 1 규칙은 데이터베이스가 지키지 못하므로 이 그림에는 나오지 않는다. 그런 업무 규칙은 클래스 다이어그램(`data-model-class.png`)의 다중도에 있다.
 
 ## SQL(참조 DDL) 만들기
 
