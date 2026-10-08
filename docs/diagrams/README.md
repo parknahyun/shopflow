@@ -12,6 +12,8 @@
 | `business-process-cancel.puml` | `business-process-cancel.png` | 발송 전 취소와 환불 |
 | `business-process-auto.puml` | `business-process-auto.png` | 시간 기반 자동 처리 |
 | `sub-order-states.puml` | `sub-order-states.png` | 하위 주문 상태 전이 |
+| `state-machines.puml` | `state-machines.png` | 이번 기능의 모든 상태머신(입점, 상품, 주문, 하위 주문, 재고 확보, 결제, 멱등키)과 개체 사이 연동 |
+| `sequence-order-to-settlement.puml` | `sequence-order-to-settlement.png` | 주문에서 정산까지 시퀀스(정산은 다음 기능의 초안) |
 | `data-model-class.puml` | `data-model-class.png` | 데이터 모델 클래스 다이어그램(바운디드 컨텍스트) |
 | `schema.dbml` | `schema-erd.png`, `schema-erd.svg` | 스키마 ERD |
 | `schema.dbml` | `schema-erd-ie.puml`, `schema-erd-ie.png` | 스키마 ERD(정보공학 표기, 관계의 선택/필수와 컬럼의 NULL 허용 여부 표시) |

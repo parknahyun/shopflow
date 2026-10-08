@@ -1,0 +1,147 @@
+@startuml
+' 상태머신 다이어그램: 이번 기능의 모든 상태
+' 근거: data-model.md의 상태 전이 표와 개체 설명, spec.md, usecase-details.md
+' 개체별 상태머신을 나란히 두고, 개체 사이 연동은 파란 점선으로 잇는다.
+title 상태머신 (이번 기능의 모든 상태)
+
+skinparam shadowing false
+skinparam state {
+  BackgroundColor #F6F8FA
+  BorderColor #57606A
+}
+skinparam ArrowColor #24292F
+
+state "판매자 입점 상태" as M1 {
+  state "신청" as sel_applied
+  state "승인" as sel_approved
+  state "거절" as sel_rejected
+  state "정지" as sel_suspended
+  [*] --> sel_applied : 입점 신청
+  sel_applied --> sel_approved : 운영자 승인
+  sel_applied --> sel_rejected : 운영자 거절
+  sel_approved --> sel_suspended : 운영자 정지
+  sel_suspended --> sel_approved : 정지 해제
+  sel_rejected --> [*]
+}
+
+state "상품 판매 상태" as M2 {
+  state "판매 중" as prd_on
+  state "판매 중지" as prd_off
+  [*] --> prd_on : 상품 등록
+  prd_on --> prd_off : 판매자 판매 중지
+  prd_off --> prd_on : 판매자 다시 판매
+}
+
+state "주문 상태" as M3 {
+  state "결제 대기" as ord_pending
+  state "확정" as ord_confirmed
+  state "취소됨" as ord_cancelled
+  state "확인 필요" as ord_review
+  [*] --> ord_pending : 결제 시작
+  ord_pending --> ord_confirmed : 결제 성공
+  ord_pending --> ord_cancelled : 결제 실패, 시간 초과,\n입금 기한 만료
+  ord_pending --> ord_review : 기한 후 입금,\n확보 만료 후 결제 성공
+  ord_confirmed --> ord_cancelled : 모든 하위 주문 취소
+  ord_cancelled --> [*]
+  ord_review --> [*]
+}
+
+state "하위 주문 상태 (배송 상태)" as M4 {
+  state "발송 전" as sub_before
+  state "배송 중" as sub_shipping
+  state "배송 완료" as sub_delivered
+  state "구매 확정" as sub_confirmed
+  state "취소" as sub_cancelled
+  [*] --> sub_before : 하위 주문 생성
+  sub_before --> sub_shipping : 판매자 송장 입력
+  sub_before --> sub_cancelled : 고객 취소(전액 환불)
+  sub_shipping --> sub_delivered : 판매자 배송 완료 처리
+  sub_delivered --> sub_confirmed : 고객 구매 확정 또는\n7일 경과
+  sub_confirmed --> [*]
+  sub_cancelled --> [*]
+}
+
+state "재고 확보 상태" as M5 {
+  state "유지" as stk_held
+  state "확정" as stk_confirmed
+  state "반환" as stk_released
+  [*] --> stk_held : 결제 시작(재고 선점)
+  stk_held --> stk_confirmed : 결제 성공
+  stk_held --> stk_released : 결제 실패, 만료
+  stk_confirmed --> [*]
+  stk_released --> [*]
+}
+
+state "결제 상태" as M6 {
+  state "준비" as pay_ready
+  state "승인 대기" as pay_waiting
+  state "입금 대기" as pay_deposit
+  state "성공" as pay_succeeded
+  state "실패" as pay_failed
+  state "만료" as pay_expired
+  [*] --> pay_ready : 결제 시작
+  pay_ready --> pay_waiting : 즉시 결제, 결제창 진입
+  pay_ready --> pay_deposit : 입금 대기, 가상계좌 발급
+  pay_ready --> pay_failed : 결제 준비 실패
+  pay_waiting --> pay_succeeded : 승인 확인(금액 일치)
+  pay_waiting --> pay_failed : 결제 실패
+  pay_waiting --> pay_expired : 유지 시간 경과
+  pay_deposit --> pay_succeeded : 입금 확인(금액 일치)
+  pay_deposit --> pay_expired : 입금 기한 경과
+  pay_succeeded --> [*]
+  pay_failed --> [*]
+  pay_expired --> [*]
+}
+
+state "멱등키 처리 상태" as M7 {
+  state "처리 중" as idk_processing
+  state "완료" as idk_completed
+  [*] --> idk_processing : 첫 요청 도착
+  idk_processing --> idk_completed : 처리 결과 저장
+  idk_completed --> [*] : 만료 시각 이후 정리
+}
+
+' 개체 사이 연동 (파란 점선)
+pay_succeeded -[#1f6feb,dashed]-> ord_confirmed : 결제 성공
+pay_succeeded -[#1f6feb,dashed]-> stk_confirmed : 결제 성공
+pay_failed -[#1f6feb,dashed]-> ord_cancelled : 결제 실패
+pay_expired -[#1f6feb,dashed]-> ord_cancelled : 만료
+pay_failed -[#1f6feb,dashed]-> stk_released : 재고 반환
+pay_expired -[#1f6feb,dashed]-> stk_released : 재고 반환
+sub_cancelled -[#1f6feb,dashed]-> stk_released : 취소 시 재고 가산\n(상태는 바뀌지 않음)
+sub_cancelled -[#1f6feb,dashed]-> ord_cancelled : 전부 취소되면
+
+note bottom of M1
+  정지·거절 판매자의 상품은 고객에게 보이지 않는다.
+  (상품 상태는 바뀌지 않고 노출만 막는다)
+end note
+
+note bottom of M4
+  취소와 발송이 동시에 오면 `WHERE 상태 = 현재 상태`
+  조건부 갱신으로 먼저 처리된 요청만 반영한다.
+  구매 확정 시각이 이후 정산의 기준이다.
+end note
+
+note bottom of M6
+  성공 결제는 주문당 하나(부분 유일 인덱스).
+  환불은 결제 상태를 바꾸지 않고 결제 거래 내역에
+  환불 행을 추가한다.
+end note
+
+note bottom of M5
+  확정과 반환은 종료 상태다. 발송 전 취소로
+  재고가 돌아와도 재고 확보 상태는 그대로 확정이다.
+end note
+
+note as N_Etc
+  계정의 상태 값은 이번 범위에서 정하지 않았다(활성만 사용).
+  하위 주문 생성 시점은 데이터 모델과 유즈케이스(결제 시작)와
+  명세 FR-011(결제 성공)이 달라 정리가 필요하다.
+end note
+
+legend right
+  실선: 같은 개체의 상태 전이
+  파란 점선: 개체 사이 연동(한쪽 상태 변화가 다른 쪽을 바꿈)
+  [*]: 시작 또는 종료
+endlegend
+@enduml
