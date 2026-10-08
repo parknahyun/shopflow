@@ -1,0 +1,125 @@
+@startuml
+' 시퀀스 다이어그램: 주문에서 정산까지
+' 근거: spec.md, usecase-details.md(UC-04, UC-05, UC-08, UC-13, UC-14, UC-19), data-model.md, ADR-0001~0007
+' 5단계(정산)는 다음 기능의 초안이며 이번 범위가 아니다(FR-017).
+title 주문에서 정산까지 (정상 흐름)
+
+skinparam shadowing false
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+autonumber
+
+actor "고객" as C
+actor "판매자" as S
+participant "웹 화면" as W
+participant "주문" as O
+participant "재고" as ST
+participant "결제" as P
+participant "결제 대행사" as PG <<외부>>
+participant "배송" as D
+participant "스케줄러" as T <<시스템>>
+participant "정산\n(다음 기능)" as SE #LightYellow
+
+== 1. 주문 생성과 재고 선점 ==
+C -> W : 주문하기(결제 방식, 중복 방지 식별값)
+W -> O : 주문 생성 요청
+activate O
+O -> ST : 재고 선점(판매 단위별 수량)
+activate ST
+ST --> O : 선점 완료(재고 확보 '유지')
+deactivate ST
+note right of ST
+  재고가 부족하면 전체를 되돌리고
+  재고 부족을 안내한다. (UC-04 3a)
+end note
+O -> O : 주문 '결제 대기', 판매자별 하위 주문 '발송 전' 생성
+O -> P : 결제 준비(주문 금액, 멱등키)
+activate P
+P -> PG : 결제 준비 요청
+alt 즉시 결제
+  PG --> P : 결제창 정보
+else 입금 대기(가상계좌)
+  PG --> P : 가상계좌와 입금 기한
+end
+P --> O : 결제 '준비'
+deactivate P
+O --> W : 결제 화면 안내
+deactivate O
+note over O, P
+  첫 구현은 재고, 주문, 결제 단계를 서비스 인터페이스를 거쳐
+  한 데이터베이스 트랜잭션으로 묶는다. (ADR-0007)
+end note
+
+== 2. 결제 확정 ==
+alt 즉시 결제
+  C -> PG : 결제창에서 결제
+  PG --> W : 결과 반환
+  W -> P : 결제 승인 요청(멱등키)
+else 입금 대기
+  C -> PG : 기한 안에 입금
+  PG -> P : 입금 완료 알림(웹훅, 서명 검증, 이벤트 식별자로 중복 제거)
+end
+activate P
+P -> PG : 결제 결과를 서버가 직접 조회
+PG --> P : 상태와 금액
+P -> P : 금액을 주문 총액과 대조
+P -> P : 결제 '성공' 기록, 결제 거래 내역(승인) 추가
+P -> O : 결제 성공 통지
+deactivate P
+activate O
+O -> ST : 재고 확보 확정
+O -> O : 주문 '확정'
+O --> W : 주문 완료
+deactivate O
+note over P, O
+  결제가 실패하거나 만료되면 재고를 반환하고 주문을 '취소됨'으로,
+  하위 주문을 '취소'로 바꾼다. (FR-011)
+  재고 확보 유지 시간이 이미 지났다면 주문을 확정하지 않고
+  확인 필요 상태로 기록한다. (UC-04 7a)
+end note
+
+== 3. 배송 ==
+S -> W : 내 하위 주문 확인
+W -> O : 내 하위 주문 조회(판매자 식별자로 제한, 확정된 주문만)
+S -> W : 송장 입력(택배사, 송장 번호)
+W -> O : 발송 처리 요청
+activate O
+O -> O : 하위 주문 '발송 전' → '배송 중' (조건부 변경)
+O -> D : 송장 저장
+O --> W : 배송 중 안내
+deactivate O
+S -> W : 배송 완료 처리
+W -> O : 배송 완료 요청
+activate O
+O -> O : 하위 주문 '배송 중' → '배송 완료' (조건부 변경)
+O -> D : 배송 완료 시각 기록
+O --> W : 배송 완료 안내(고객 화면에 구매 확정 버튼)
+deactivate O
+
+== 4. 구매 확정 ==
+alt 고객이 구매 확정
+  C -> W : 구매 확정
+  W -> O : 구매 확정 요청
+else 배송 완료 후 7일 경과
+  T -> O : 기간이 지난 하위 주문 자동 구매 확정
+end
+activate O
+O -> O : 하위 주문 '배송 완료' → '구매 확정', 구매 확정 시각 기록
+O --> W : 구매 확정 완료
+O ->> SE : 구매 확정 알림(하위 주문, 판매자, 금액, 확정 시각)
+deactivate O
+
+== 5. 정산 (다음 기능의 초안, 이번 범위 아님) ==
+activate SE
+SE -> SE : 적용 시점의 수수료율을 조회해 기록(설정 또는 데이터로 관리)
+SE -> SE : 정산 금액 = 판매 금액 - 수수료 - 이미 환불된 금액
+SE -> SE : 원장에 항목 추가(판매 입금, 수수료 공제, 환불 차감)
+SE -> SE : 정산 확정(확정 이후에는 정책이 바뀌어도 값이 달라지지 않음)
+note right of SE
+  구매 확정 이후에 환불이 생기면 다음 정산에서 차감한다.
+  금액 계산은 원 단위 정수로 하고 반올림 규칙을 명시한다.
+  (헌법 원칙 IX)
+end note
+SE --> S : 정산 내역 조회 가능
+deactivate SE
+@enduml

@@ -1,0 +1,74 @@
+@startuml
+' C4 모델 2단계: 컨테이너 (목표 구조: 컨텍스트별 별도 인스턴스, 프론트엔드 분리)
+' 근거: ADR-0007. 분리 순서(결제 → 프론트엔드 → 재고·배송 → 나머지)는 제안이며 필요가 생길 때 새 ADR로 정한다.
+!include <C4/C4_Container>
+HIDE_STEREOTYPE()
+
+title 컨테이너 다이어그램: 샵플로우 (목표 구조, 참고)
+
+Person(customer, "고객")
+Person(seller, "판매자")
+Person(admin, "운영자")
+
+System_Ext(pg, "결제 대행사")
+
+Boundary(shopflow, "샵플로우 (목표)", "시스템") {
+  Container(front, "프론트엔드", "별도 인스턴스(서버 렌더링 또는 단일 페이지 앱)", "화면. 단일 페이지 앱이면 헌법 기술 스택 섹션에 따라 근거를 남긴다.")
+  Container(gw, "진입점(게이트웨이)", "라우팅, 인증 전달", "프론트엔드의 요청을 각 서비스로 보낸다.")
+
+  Container(account, "계정 서비스", "스프링 부트", "가입, 로그인, 입점 신청과 승인")
+  Container(product, "상품 서비스", "스프링 부트", "상품, 판매 단위, 검색")
+  Container(order, "주문 서비스", "스프링 부트", "장바구니, 주문, 하위 주문 상태 전이, 취소, 구매 확정, 결제 시작 흐름의 조정")
+  Container(inventory, "재고 서비스", "스프링 부트", "재고 선점, 확정, 반환, 만료 처리")
+  Container(payment, "결제 서비스", "스프링 부트", "결제, 결제 거래 내역, 대행사 연동, 웹훅")
+  Container(delivery, "배송 서비스", "스프링 부트", "송장, 배송 완료 시각")
+  Container(common, "공통 서비스", "스프링 부트", "멱등키, 변경 이력 (또는 각 서비스가 자기 것을 가짐)")
+
+  ContainerDb(db_account, "계정 DB", "포스트그레스큐엘")
+  ContainerDb(db_product, "상품 DB", "포스트그레스큐엘")
+  ContainerDb(db_order, "주문 DB", "포스트그레스큐엘")
+  ContainerDb(db_inventory, "재고 DB", "포스트그레스큐엘")
+  ContainerDb(db_payment, "결제 DB", "포스트그레스큐엘")
+  ContainerDb(db_delivery, "배송 DB", "포스트그레스큐엘")
+  ContainerDb(db_common, "공통 DB", "포스트그레스큐엘")
+  Container(bus, "메시지 전달", "아웃박스와 메시지 브로커", "컨텍스트 사이 결과를 비동기로 전달한다. 보상 처리와 멱등한 수신이 필요하다.")
+}
+
+Rel(customer, front, "사용", "HTTPS")
+Rel(seller, front, "사용", "HTTPS")
+Rel(admin, front, "사용", "HTTPS")
+Rel(front, gw, "요청", "HTTPS")
+Rel(gw, account, "호출")
+Rel(gw, product, "호출")
+Rel(gw, order, "호출")
+Rel(gw, delivery, "호출")
+
+Rel(account, db_account, "읽기와 쓰기")
+Rel(product, db_product, "읽기와 쓰기")
+Rel(order, db_order, "읽기와 쓰기")
+Rel(inventory, db_inventory, "읽기와 쓰기")
+Rel(payment, db_payment, "읽기와 쓰기")
+Rel(delivery, db_delivery, "읽기와 쓰기")
+Rel(common, db_common, "읽기와 쓰기")
+
+Rel(order, inventory, "재고 선점·확정·반환 요청", "동기 호출 또는 메시지")
+Rel(order, payment, "결제 준비 요청", "동기 호출")
+Rel(payment, bus, "결제 성공·실패 통지")
+Rel(bus, order, "결제 결과 전달")
+Rel(order, delivery, "송장과 배송 완료 기록 요청")
+Rel(product, inventory, "재고 등록과 수정 요청")
+Rel(payment, pg, "결제 준비, 직접 조회, 환불", "HTTPS")
+Rel(pg, payment, "입금 완료 알림", "HTTPS 웹훅")
+
+note bottom of order
+  결제 시작 한 번이 재고, 주문, 결제 세 서비스를 지나므로
+  한 트랜잭션이 불가능하고 보상 처리가 필요하다.
+  취소와 발송의 경쟁은 주문 서비스 한 곳에서 처리한다.
+end note
+note as N_Legend
+  파란색 진한 사각형: 사람(고객, 판매자, 운영자)
+  파란색 사각형: 우리 시스템, 컨테이너, 컴포넌트
+  회색 사각형: 외부 시스템
+  점선 상자: 경계(시스템, 컨테이너, 컨텍스트)
+end note
+@enduml
