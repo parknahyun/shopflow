@@ -21,7 +21,7 @@ state "판매자 입점 상태" as M1 {
   sel_applied --> sel_rejected : 운영자 거절
   sel_approved --> sel_suspended : 운영자 정지
   sel_suspended --> sel_approved : 정지 해제
-  sel_rejected --> [*]
+  sel_rejected --> sel_applied : 판매자 재신청\n(정보·서류 보완)
 }
 
 state "상품 판매 상태" as M2 {
@@ -37,13 +37,16 @@ state "주문 상태" as M3 {
   state "확정" as ord_confirmed
   state "취소됨" as ord_cancelled
   state "확인 필요" as ord_review
+  state "환불됨" as ord_refunded
   [*] --> ord_pending : 결제 시작
   ord_pending --> ord_confirmed : 결제 성공
-  ord_pending --> ord_cancelled : 결제 실패, 시간 초과,\n입금 기한 만료
-  ord_pending --> ord_review : 기한 후 입금,\n확보 만료 후 결제 성공
+  ord_pending --> ord_cancelled : 결제 실패, 시간 초과,\n입금 기한 만료,\n고객 직접 취소
+  ord_pending --> ord_review : 확보 만료 후 결제 성공,\n금액 불일치
+  ord_cancelled --> ord_review : 만료 뒤 성공\n(기한 후 입금 포함)
   ord_confirmed --> ord_cancelled : 모든 하위 주문 취소
+  ord_review --> ord_refunded : 자동 전액 환불 완료
   ord_cancelled --> [*]
-  ord_review --> [*]
+  ord_refunded --> [*]
 }
 
 state "하위 주문 상태 (배송 상태)" as M4 {
@@ -54,9 +57,9 @@ state "하위 주문 상태 (배송 상태)" as M4 {
   state "취소" as sub_cancelled
   [*] --> sub_before : 결제 시작(주문과 함께 생성)
   sub_before --> sub_shipping : 판매자 송장 입력\n(주문 확정 후)
-  sub_before --> sub_cancelled : 고객 취소(전액 환불),\n결제 실패·만료(환불 없음)
+  sub_before --> sub_cancelled : 고객·판매자 취소(전액 환불,\n주문 확정 후만),\n결제 실패·만료·결제 대기 취소\n·확인 필요(시스템·고객)
   sub_shipping --> sub_delivered : 판매자 배송 완료 처리
-  sub_delivered --> sub_confirmed : 고객 구매 확정 또는\n7일 경과
+  sub_delivered --> sub_confirmed : 고객 구매 확정 또는\n배송 완료 시각 7일 경과\n(문제 신고 건 제외)
   sub_confirmed --> [*]
   sub_cancelled --> [*]
 }
@@ -83,22 +86,43 @@ state "결제 상태" as M6 {
   pay_ready --> pay_waiting : 즉시 결제, 결제창 진입
   pay_ready --> pay_deposit : 입금 대기, 가상계좌 발급
   pay_ready --> pay_failed : 결제 준비 실패
+  pay_ready --> pay_expired : 결제창 이탈(유지 시간 경과),\n고객 결제 대기 주문 취소
   pay_waiting --> pay_succeeded : 승인 확인(금액 일치)
   pay_waiting --> pay_failed : 결제 실패
-  pay_waiting --> pay_expired : 유지 시간 경과
+  pay_waiting --> pay_expired : 유지 시간 경과,\n고객 결제 대기 주문 취소
   pay_deposit --> pay_succeeded : 입금 확인(금액 일치)
-  pay_deposit --> pay_expired : 입금 기한 경과
+  pay_deposit --> pay_expired : 입금 기한 경과,\n고객 결제 대기 주문 취소
+  pay_expired --> pay_succeeded : 만료 뒤 승인·입금이\n서버 조회로 확인됨\n(주문은 확인 필요)
   pay_succeeded --> [*]
   pay_failed --> [*]
   pay_expired --> [*]
 }
 
+state "환불 상태" as M8 {
+  state "요청" as rfd_requested
+  state "확인 중" as rfd_checking
+  state "완료" as rfd_completed
+  state "실패" as rfd_failed
+  [*] --> rfd_requested : 취소와 같은 트랜잭션에서 기록
+  rfd_requested --> rfd_completed : 대행사 환불 성공
+  rfd_requested --> rfd_failed : 대행사 환불 실패
+  rfd_requested --> rfd_checking : 결과 모름(시간 초과)
+  rfd_checking --> rfd_completed : 조회로 완료 확인
+  rfd_checking --> rfd_failed : 조회로 실패 확인
+  rfd_completed --> [*]
+  rfd_failed --> [*] : 재시도는 새 환불 행\n(새 멱등키)
+}
+
 state "멱등키 처리 상태" as M7 {
   state "처리 중" as idk_processing
   state "완료" as idk_completed
+  state "실패" as idk_failed
   [*] --> idk_processing : 첫 요청 도착
   idk_processing --> idk_completed : 처리 결과 저장
+  idk_processing --> idk_failed : 실패 결과 저장,\n또는 점유 만료 뒤\n조회 결과 실패
+  idk_processing --> idk_processing : 점유 만료 뒤\n다른 요청이 조회로 이어받음
   idk_completed --> [*] : 만료 시각 이후 정리
+  idk_failed --> [*] : 만료 시각 이후 정리\n(재시도는 새 키)
 }
 
 ' 개체 사이 연동 (파란 점선)
@@ -106,6 +130,10 @@ pay_succeeded -[#1f6feb,dashed]-> ord_confirmed : 결제 성공
 pay_succeeded -[#1f6feb,dashed]-> stk_confirmed : 결제 성공
 pay_failed -[#1f6feb,dashed]-> ord_cancelled : 결제 실패
 pay_expired -[#1f6feb,dashed]-> ord_cancelled : 만료
+pay_succeeded -[#1f6feb,dashed]-> ord_review : 만료 뒤 성공,\n확보 만료 뒤 성공
+ord_review -[#1f6feb,dashed]-> rfd_requested : 자동 전액 환불 요청
+rfd_completed -[#1f6feb,dashed]-> ord_refunded : 확인 필요 환불 완료
+sub_cancelled -[#1f6feb,dashed]-> rfd_requested : 확정 주문의 취소 시\n환불 행 먼저 기록
 pay_failed -[#1f6feb,dashed]-> sub_cancelled : 하위 주문 취소
 pay_expired -[#1f6feb,dashed]-> sub_cancelled : 하위 주문 취소
 pay_failed -[#1f6feb,dashed]-> stk_released : 재고 반환
@@ -116,20 +144,34 @@ sub_cancelled -[#1f6feb,dashed]-> ord_cancelled : 전부 취소되면
 note bottom of M1
   정지·거절 판매자의 상품은 고객에게 보이지 않는다.
   (상품 상태는 바뀌지 않고 노출만 막는다)
+  거절은 사유를 남기고, 같은 정보를 고쳐 다시 신청할 수 있다.
+  정지는 신규 판매만 막고, 이미 확정된 주문의 발송·배송 완료·
+  판매자 취소는 계속할 수 있다.
 end note
 
 note bottom of M4
   취소와 발송이 동시에 오면 `WHERE 상태 = 현재 상태`
   조건부 갱신으로 먼저 처리된 요청만 반영한다.
+  취소는 속한 주문이 확정된 뒤에만 한다. 취소 주체(고객,
+  판매자, 시스템)와 사유를 기록하고 판매자 취소는 사유가 필수다.
+  배송 완료 뒤 고객이 문제 신고를 하면 자동 구매 확정에서 빠진다.
   구매 확정 시각이 이후 정산의 기준이다.
   주문이 확정되기 전의 하위 주문은 판매자에게
   보이지 않는다. (FR-011a)
 end note
 
 note bottom of M6
-  성공 결제는 주문당 하나(부분 유일 인덱스).
+  성공 결제와 비종료 결제는 각각 주문당 하나(부분 유일 인덱스).
+  만료는 만료 뒤 성공으로 가는 경우만 종료 상태가 아니다.
+  만료시키기 전에 항상 대행사에 조회를 먼저 한다.
   환불은 결제 상태를 바꾸지 않고 결제 거래 내역에
   환불 행을 추가한다.
+end note
+
+note bottom of M8
+  하위 주문(또는 주문 전체)당 진행 중·완료 환불은 하나(부분 유일 인덱스).
+  환불 합계는 하위 주문 금액과 결제 금액을 넘을 수 없다.
+  가상계좌 결제의 환불은 암호화 저장한 환불 계좌로 보낸다.
 end note
 
 note bottom of M5
