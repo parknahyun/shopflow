@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: shopflow
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  data:
+    rest:
+      # 백엔드는 REST API만 낸다. 화면은 9단계의 별도 프론트엔드 인스턴스가 맡는다.
+      base-path: /api
+      # 어노테이션을 붙인 리포지토리만 노출한다(ADR-0008 규칙 1).
+      detection-strategy: annotated
+
+shopflow:
+  inventory:
+    # 재고 확보 유지 시간(FR-008). 결제 방식별로 따로 정한다.
+    reservation-ttl:
+      immediate-payment: 15m
+      deposit-wait: 24h
+  delivery:
+    # 배송 완료 뒤 자동 구매 확정까지의 기간(FR-012)
+    auto-confirm-after: 7d
+  scheduler:
+    # 예약 작업 주기(UC-17, UC-18, UC-19)
+    interval: 1m

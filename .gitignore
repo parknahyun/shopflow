@@ -1,0 +1,31 @@
+# 빌드 산출물
+build/
+out/
+.gradle/
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# 개인 설정
+.idea/
+*.iml
+.vscode/
+.claude/settings.local.json
+
+# 비밀값과 환경 파일
+.env
+.env.*
+application-local.yml
+*-secret.yml
+
+# 업로드 파일(입점 서류, 상품 사진)
+storage/
+
+# 운영체제
+.DS_Store
+Thumbs.db
+
+# 임시
+*.log
+*.tmp
+*.swp
