@@ -1,0 +1,239 @@
+@startuml
+' 스키마 ERD (정보공학 표기)
+' 이 파일은 docs/diagrams/dbml-to-ie-puml.js로 schema.dbml에서 만든다. 직접 고치지 않는다.
+title 스키마 ERD (관계의 선택/필수 표시)
+skinparam shadowing false
+hide circle
+skinparam linetype ortho
+
+rectangle "계정 컨텍스트" {
+  entity "account" as account {
+    * id : bigint <<PK>>
+    --
+    * public_id : varchar(36)
+    * type : account_type
+    * email : varchar(255)
+    * password_hash : varchar(255)
+    * status : varchar(20)
+    * created_at : timestamptz
+    * updated_at : timestamptz
+  }
+  entity "seller_profile" as seller_profile {
+    * id : bigint <<PK>>
+    --
+    * account_id : bigint <<FK>>
+    * business_type : business_type
+    * business_name : varchar(100)
+    * business_registration_no : varchar(20)
+    * representative_name : varchar(50)
+    * phone : varchar(30)
+    * business_address : varchar(255)
+    * mail_order_report_no : varchar(50)
+    corporate_name : varchar(100)
+    corporate_registration_no : varchar(20)
+    * status : seller_status
+    * created_at : timestamptz
+    * updated_at : timestamptz
+  }
+  entity "seller_document" as seller_document {
+    * id : bigint <<PK>>
+    --
+    * seller_profile_id : bigint <<FK>>
+    * document_type : varchar(30)
+    * file_path : varchar(500)
+    * submitted_at : timestamptz
+  }
+}
+
+rectangle "상품 컨텍스트" {
+  entity "product" as product {
+    * id : bigint <<PK>>
+    --
+    * public_id : varchar(36)
+    * seller_id : bigint <<식별자>>
+    * name : varchar(200)
+    description : text
+    * status : product_status
+    * created_at : timestamptz
+    * updated_at : timestamptz
+  }
+  entity "product_photo" as product_photo {
+    * id : bigint <<PK>>
+    --
+    * product_id : bigint <<FK>>
+    * file_path : varchar(500)
+    * sort_order : int
+  }
+  entity "product_variant" as product_variant {
+    * id : bigint <<PK>>
+    --
+    * product_id : bigint <<FK>>
+    * option_values : jsonb
+    * price : bigint
+    * created_at : timestamptz
+    * updated_at : timestamptz
+  }
+}
+
+rectangle "재고 컨텍스트" {
+  entity "stock" as stock {
+    * id : bigint <<PK>>
+    --
+    * variant_id : bigint <<식별자>>
+    * available_qty : bigint
+    * updated_at : timestamptz
+  }
+  entity "stock_reservation" as stock_reservation {
+    * id : bigint <<PK>>
+    --
+    * stock_id : bigint <<FK>>
+    * order_id : bigint <<식별자>>
+    * variant_id : bigint <<식별자>>
+    * quantity : int
+    * expires_at : timestamptz
+    * status : reservation_status
+    * created_at : timestamptz
+    * updated_at : timestamptz
+  }
+}
+
+rectangle "주문 컨텍스트" {
+  entity "cart_item" as cart_item {
+    * id : bigint <<PK>>
+    --
+    * customer_id : bigint <<식별자>>
+    * variant_id : bigint <<식별자>>
+    * quantity : int
+    * created_at : timestamptz
+    * updated_at : timestamptz
+  }
+  entity "customer_order" as customer_order {
+    * id : bigint <<PK>>
+    --
+    * public_id : varchar(36)
+    * customer_id : bigint <<식별자>>
+    * total_amount : bigint
+    * status : order_status
+    * shipping_recipient : varchar(50)
+    * shipping_phone : varchar(30)
+    * shipping_address : varchar(255)
+    * created_at : timestamptz
+    * updated_at : timestamptz
+  }
+  entity "sub_order" as sub_order {
+    * id : bigint <<PK>>
+    --
+    * public_id : varchar(36)
+    * order_id : bigint <<FK>>
+    * seller_id : bigint <<식별자>>
+    * amount : bigint
+    * status : sub_order_status
+    purchase_confirmed_at : timestamptz
+    cancelled_at : timestamptz
+    * created_at : timestamptz
+    * updated_at : timestamptz
+  }
+  entity "sub_order_item" as sub_order_item {
+    * id : bigint <<PK>>
+    --
+    * sub_order_id : bigint <<FK>>
+    * variant_id : bigint <<식별자>>
+    * quantity : int
+    * unit_price : bigint
+  }
+}
+
+rectangle "배송 컨텍스트" {
+  entity "delivery" as delivery {
+    * id : bigint <<PK>>
+    --
+    * sub_order_id : bigint <<식별자>>
+    * carrier : varchar(50)
+    * tracking_no : varchar(50)
+    delivered_at : timestamptz
+    * created_at : timestamptz
+    * updated_at : timestamptz
+  }
+}
+
+rectangle "결제 컨텍스트" {
+  entity "payment" as payment {
+    * id : bigint <<PK>>
+    --
+    * public_id : varchar(36)
+    * order_id : bigint <<식별자>>
+    * method : payment_method
+    * amount : bigint
+    * status : payment_status
+    gateway_payment_key : varchar(100)
+    deposit_deadline : timestamptz
+    * created_at : timestamptz
+    * updated_at : timestamptz
+  }
+  entity "payment_transaction" as payment_transaction {
+    * id : bigint <<PK>>
+    --
+    * payment_id : bigint <<FK>>
+    * type : transaction_type
+    sub_order_id : bigint <<식별자>>
+    * amount : bigint
+    gateway_transaction_key : varchar(100)
+    * occurred_at : timestamptz
+  }
+}
+
+rectangle "공통(횡단) 컨텍스트" {
+  entity "idempotency_key" as idempotency_key {
+    * id : bigint <<PK>>
+    --
+    * scope : varchar(30)
+    * idem_key : varchar(100)
+    * request_hash : varchar(64)
+    * status : idempotency_status
+    result : jsonb
+    * expires_at : timestamptz
+    * created_at : timestamptz
+  }
+  entity "audit_log" as audit_log {
+    * id : bigint <<PK>>
+    --
+    * target_type : varchar(30)
+    * target_id : bigint
+    from_status : varchar(30)
+    * to_status : varchar(30)
+    * actor : varchar(100)
+    * occurred_at : timestamptz
+  }
+}
+
+
+account ||--o| seller_profile
+seller_profile ||--o{ seller_document
+product ||--o{ product_photo
+product ||--o{ product_variant
+stock ||--o{ stock_reservation
+customer_order ||--o{ sub_order
+sub_order ||--o{ sub_order_item
+payment ||--o{ payment_transaction
+seller_profile ||..o{ product
+product_variant ||..o| stock
+customer_order ||..o{ stock_reservation
+product_variant ||..o{ stock_reservation
+account ||..o{ cart_item
+product_variant ||..o{ cart_item
+account ||..o{ customer_order
+seller_profile ||..o{ sub_order
+product_variant ||..o{ sub_order_item
+sub_order ||..o| delivery
+customer_order ||..o{ payment
+sub_order |o..o{ payment_transaction
+
+legend right
+  컬럼 앞의 점(●): 필수(NOT NULL), 없으면 NULL 허용
+  || : 정확히 하나(필수)    |o : 없거나 하나(선택)
+  o{ : 0개 이상            o| : 없거나 하나
+  실선: 외래키 관계
+  점선: 컨텍스트 사이 식별자 참조(외래키 없음)
+  관계 기호는 데이터베이스가 지키는 규칙만 나타낸다.
+endlegend
+@enduml

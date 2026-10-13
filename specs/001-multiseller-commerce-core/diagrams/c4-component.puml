@@ -1,0 +1,151 @@
+@startuml
+' C4 모델 3단계: 컴포넌트 (샵플로우 애플리케이션 내부)
+' 구조: 화면 MVC 계층(프론트엔드 제어) → API 클라이언트 → 컨텍스트별 REST API(스프링 데이터 REST) → 서비스 → 리포지토리
+' 근거: ADR-0008(계층 구조), ADR-0007(컨텍스트 분리), plan.md, data-model.md, 시퀀스 다이어그램
+!include <C4/C4_Component>
+HIDE_STEREOTYPE()
+
+title 컴포넌트 다이어그램: 샵플로우 애플리케이션 (REST API + 리포지토리 구조, 별도 화면 MVC 계층)
+
+Container(browser, "웹 브라우저", "HTML", "고객, 판매자, 운영자 화면")
+ContainerDb(db, "데이터베이스", "포스트그레스큐엘", "컨텍스트마다 자기 테이블만 쓴다")
+ContainerDb(files, "파일 저장소", "서버 디스크", "상품 사진, 입점 서류")
+System_Ext(pg, "결제 대행사", "결제, 조회, 환불, 웹훅")
+
+Boundary(app, "샵플로우 애플리케이션 (모듈형 모놀리스)", "컨테이너") {
+
+  Boundary(b_web, "화면 MVC 계층 (프론트엔드 제어)") {
+    Component(security, "보안", "스프링 시큐리티", "로그인, 계정 유형별 권한, 사이트 간 요청 위조 방어, 비밀번호 해시. 메서드 보안으로 REST API도 같은 규칙을 적용한다.")
+    Component(screen_ctrl, "화면 컨트롤러", "스프링 MVC", "경로별 화면 흐름(가입, 상품, 장바구니, 주문하기, 주문 조회, 판매자 화면, 운영자 화면). 폼을 받아 API 클라이언트를 호출하고 화면 모델을 만든다. 서비스나 리포지토리를 직접 부르지 않는다.")
+    Component(view_model, "화면 모델과 템플릿", "타임리프", "API 응답을 화면용 모델로 바꾸고 화면을 그린다. 오류 응답을 한글 안내 문구로 바꾼다.")
+    Component(api_client, "API 클라이언트", "자바 인터페이스", "컨텍스트별 REST API를 부르는 유일한 통로. 첫 구현은 같은 프로세스의 API를 직접 호출하고, 프론트엔드를 분리할 때 HTTP 호출 구현으로 바꾼다.")
+  }
+
+  Boundary(b_account, "계정 컨텍스트") {
+    Component(account_api, "계정 API", "스프링 데이터 REST + 동작 컨트롤러", "읽기: 판매자 정보, 입점 서류 리소스(권한 조건 포함). 동작: 가입, 입점 신청, 승인, 거절. 쓰기용 리소스는 노출하지 않는다.")
+    Component(account_svc, "계정 서비스", "자바", "가입, 입점 신청, 승인과 거절 규칙, 사업자등록번호 유일성, 입점 서류 보관")
+    Component(account_repo, "계정 리포지토리", "스프링 데이터 JPA", "계정, 판매자 정보, 입점 서류")
+  }
+
+  Boundary(b_product, "상품 컨텍스트") {
+    Component(product_api, "상품 API", "스프링 데이터 REST + 동작 컨트롤러", "읽기: 상품, 판매 단위 검색과 조회(판매 중만). 동작: 상품 등록, 수정, 판매 중지.")
+    Component(product_svc, "상품 서비스", "자바", "상품과 옵션 조합 등록, 판매 중지. 재고 등록은 재고 서비스에 맡긴다.")
+    Component(product_repo, "상품 리포지토리", "스프링 데이터 JPA", "상품, 판매 단위, 사진")
+  }
+
+  Boundary(b_order, "주문 컨텍스트") {
+    Component(order_api, "주문 API", "스프링 데이터 REST + 동작 컨트롤러", "읽기: 장바구니, 주문, 하위 주문 리소스(본인 것만, 판매자는 확정된 주문만). 동작: 담기, 결제 시작, 취소, 구매 확정, 발송 처리, 배송 완료 처리. 상태 필드는 쓰기 불가.")
+    Component(checkout, "결제 시작 조정", "자바", "재고 선점, 주문 생성, 결제 준비를 순서대로 부르고 결과에 따라 확정 또는 취소를 지시한다. 단계마다 멱등하다.")
+    Component(order_svc, "주문 서비스", "자바", "주문과 하위 주문 생성, 상태 전이(조건부 갱신), 취소, 구매 확정, 판매자별 조회 제한")
+    Component(order_repo, "주문 리포지토리", "스프링 데이터 JPA", "장바구니, 주문, 하위 주문, 하위 주문 항목. 상태 변경은 조건부 갱신 질의로만 한다.")
+  }
+
+  Boundary(b_inventory, "재고 컨텍스트") {
+    Component(stock_svc, "재고 서비스", "자바", "재고(가용 수량)와 재고 확보. REST로 노출하지 않고 다른 컨텍스트가 서비스 인터페이스로만 부른다.")
+    Component(stock_repo, "재고 리포지토리", "스프링 데이터 JPA", "재고, 재고 확보. 조건부 갱신 질의로만 차감과 가산, 상태 변경을 한다.")
+  }
+
+  Boundary(b_payment, "결제 컨텍스트") {
+    Component(pay_api, "결제 API", "스프링 데이터 REST + 동작 컨트롤러", "읽기: 본인 결제 조회. 동작: 승인 확인. 입금 완료 알림(웹훅) 수신은 서명으로 검증한다.")
+    Component(pay_svc, "결제 서비스", "자바", "결제 준비, 승인 확인(서버 직접 조회, 금액 대조), 환불, 웹훅 반영(중복 제거)")
+    Component(pay_port, "결제 포트", "자바 인터페이스", "준비, 승인, 조회, 환불. 테스트에서는 가짜 구현으로 바꾼다.")
+    Component(pay_adapter, "대행사 어댑터", "자바, HTTP 클라이언트", "결제 대행사 호출 구현. 멱등키 헤더를 붙인다.")
+    Component(pay_repo, "결제 리포지토리", "스프링 데이터 JPA", "결제, 결제 거래 내역(추가 전용)")
+  }
+
+  Boundary(b_delivery, "배송 컨텍스트") {
+    Component(delivery_svc, "배송 서비스", "자바", "송장과 배송 완료 시각 기록. REST로 노출하지 않고 주문 서비스가 부른다.")
+    Component(delivery_repo, "배송 리포지토리", "스프링 데이터 JPA", "배송 정보")
+  }
+
+  Boundary(b_common, "공통 컨텍스트") {
+    Component(idem, "멱등키 서비스", "자바", "(범위, 키) 유일 제약으로 중복 요청을 막고 결과를 저장")
+    Component(audit, "변경 이력", "자바", "결제, 주문, 하위 주문, 재고 확보의 상태 변경을 추가만 한다")
+    Component(storage_port, "파일 저장 포트", "자바 인터페이스", "형식과 크기 검사, 서버가 정한 이름으로 비공개 저장")
+    Component(common_repo, "공통 리포지토리", "스프링 데이터 JPA", "멱등키, 변경 이력")
+  }
+
+  Component(scheduler, "예약 작업", "스프링 스케줄러", "1분마다 만료된 재고 선점 반환, 입금 기한 만료 취소, 7일 지난 배송 완료 건 자동 구매 확정. 건너뜀 잠금으로 중복 실행을 막는다.")
+}
+
+Rel(browser, security, "요청", "HTTPS")
+Rel(security, screen_ctrl, "인증된 요청 전달")
+Rel(screen_ctrl, view_model, "화면 모델 만들기")
+Rel(screen_ctrl, api_client, "API 호출")
+Rel(api_client, account_api, "호출", "REST")
+Rel(api_client, product_api, "호출", "REST")
+Rel(api_client, order_api, "호출", "REST")
+Rel(api_client, pay_api, "호출", "REST")
+
+Rel(account_api, account_svc, "동작")
+Rel(account_api, account_repo, "읽기 리소스")
+Rel(product_api, product_svc, "동작")
+Rel(product_api, product_repo, "읽기 리소스")
+Rel(order_api, checkout, "결제 시작, 결제 결과 반영")
+Rel(order_api, order_svc, "취소, 구매 확정, 발송 처리")
+Rel(order_api, order_repo, "읽기 리소스")
+Rel(pay_api, pay_svc, "동작, 웹훅 반영")
+Rel(pay_api, pay_repo, "읽기 리소스")
+
+Rel(account_svc, account_repo, "저장과 조회")
+Rel(product_svc, product_repo, "저장과 조회")
+Rel(order_svc, order_repo, "조건부 갱신")
+Rel(stock_svc, stock_repo, "조건부 갱신")
+Rel(pay_svc, pay_repo, "저장과 조회")
+Rel(delivery_svc, delivery_repo, "저장과 조회")
+Rel(idem, common_repo, "저장과 조회")
+Rel(audit, common_repo, "추가")
+
+Rel(checkout, idem, "중복 요청 확인")
+Rel(checkout, stock_svc, "재고 선점, 확정, 반환")
+Rel(checkout, order_svc, "주문과 하위 주문 생성, 확정, 취소")
+Rel(checkout, pay_svc, "결제 준비, 승인 확인")
+Rel(order_svc, delivery_svc, "송장 저장, 배송 완료 시각 기록")
+Rel(order_svc, pay_svc, "발송 전 취소 환불 요청")
+Rel(order_svc, stock_svc, "취소 시 재고 가산")
+Rel(product_svc, stock_svc, "재고 등록과 수정")
+Rel(product_svc, storage_port, "사진 저장")
+Rel(account_svc, storage_port, "입점 서류 저장")
+Rel(pay_svc, pay_port, "사용")
+Rel(pay_adapter, pay_port, "구현", "구현 관계")
+Rel(pay_adapter, pg, "결제, 조회, 환불", "HTTPS")
+Rel(pg, pay_api, "입금 완료 알림", "HTTPS 웹훅")
+Rel(pay_svc, idem, "환불과 웹훅 중복 방지")
+Rel(order_svc, audit, "상태 변경 기록")
+Rel(stock_svc, audit, "상태 변경 기록")
+Rel(pay_svc, audit, "상태 변경 기록")
+
+Rel(scheduler, stock_svc, "만료된 재고 확보 반환")
+Rel(scheduler, checkout, "입금 기한 만료 취소 지시")
+Rel(scheduler, order_svc, "자동 구매 확정")
+
+Rel(account_repo, db, "계정 테이블", "JDBC")
+Rel(product_repo, db, "상품 테이블", "JDBC")
+Rel(order_repo, db, "주문 테이블", "JDBC")
+Rel(stock_repo, db, "재고 테이블", "JDBC")
+Rel(pay_repo, db, "결제 테이블", "JDBC")
+Rel(delivery_repo, db, "배송 테이블", "JDBC")
+Rel(common_repo, db, "공통 테이블", "JDBC")
+Rel(storage_port, files, "파일 입출력")
+
+note bottom of order_api
+  스프링 데이터 REST 사용 규칙 (ADR-0008)
+  1. 상태를 가진 개체(재고, 결제, 하위 주문 상태, 멱등키, 변경 이력)는 쓰기용 REST 리소스로 노출하지 않는다.
+  2. 상태 전이, 결제 시작, 취소, 발송 처리는 동작 컨트롤러만 하고, 반드시 서비스를 거친다.
+  3. 읽기 리소스는 본인 것만, 판매자는 확정된 주문의 하위 주문만 돌려준다(리포지토리의 권한 조건).
+  4. 컨텍스트 사이 참조는 식별자 값이라 링크로 이어지지 않는다.
+end note
+
+note bottom of checkout
+  컨텍스트를 가로지르는 흐름(결제 시작, 결제 성공, 발송 전 취소)은
+  첫 구현에서 서비스 인터페이스를 거쳐 한 트랜잭션으로 묶는다.
+  분리할 때는 이 조정이 보상 처리로 바뀐다. (ADR-0007)
+end note
+
+note as N_Legend
+  파란색 진한 사각형: 사람
+  파란색 사각형: 컨테이너, 컴포넌트
+  회색 사각형: 외부 시스템
+  점선 상자: 경계(컨테이너, 계층, 컨텍스트)
+end note
+@enduml
