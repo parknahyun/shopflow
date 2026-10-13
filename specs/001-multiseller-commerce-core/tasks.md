@@ -72,42 +72,42 @@ description: "멀티 판매자 이커머스 핵심 구매·판매 흐름 작업 
 
 ### 기반 스텁 (테스트가 컴파일되도록 가장 먼저 만든다)
 
-- [ ] T166 [P] 테스트가 참조하는 인터페이스와 빈 껍데기 만들기(구현은 비워 두고 호출하면 예외를 던진다): `…/common/Money.java`, `…/common/TimeProvider.java`, `…/common/idempotency/IdempotencyService.java`, `…/common/audit/AuditService.java`, `…/common/storage/FileStoragePort.java`, `…/payment/service/port/PaymentGateway.java`. 이 껍데기 덕분에 T011~T018과 이후 테스트가 컴파일되고 "실패"가 컴파일 오류가 아닌 시험 실패로 나온다(헌법 원칙 I, review.md W-06)
+- [X] T166 [P] 테스트가 참조하는 인터페이스와 빈 껍데기 만들기(구현은 비워 두고 호출하면 예외를 던진다): `…/common/Money.java`, `…/common/TimeProvider.java`, `…/common/idempotency/IdempotencyService.java`, `…/common/audit/AuditService.java`, `…/common/storage/FileStoragePort.java`, `…/payment/service/port/PaymentGateway.java`. 이 껍데기 덕분에 T011~T018과 이후 테스트가 컴파일되고 "실패"가 컴파일 오류가 아닌 시험 실패로 나온다(헌법 원칙 I, review.md W-06)
 
 ### 기반 테스트 (먼저 작성하고 실패를 확인한다) ⚠️
 
-- [ ] T167 [P] `테스트/support/DummyEndpointsConfig.java` 작성: 시험 프로필에서만 켜지는 더미 컨트롤러와 더미 리소스(고객 전용, 판매자 전용, 운영자 전용 경로, 존재하지 않는 주문 조회, 허용되지 않는 전이 요청, 같은 멱등키 다른 내용 요청). T012, T013, T018이 실제 엔드포인트가 생기기 전에도 공허하게 통과하지 않게 한다. 실제 엔드포인트에서는 T055(US1)와 T108(US3), T142에서 같은 시험을 다시 돌린다(review.md W-02)
-- [ ] T011 [P] `테스트/unit/ArchitectureTest.java` 작성(ArchUnit): ① 다른 컨텍스트의 `repository` 패키지를 직접 쓰지 않는다 ② 백엔드에 화면 코드(`web`, `client` 패키지)가 없다(화면은 9단계의 프론트엔드 인스턴스) ③ 컨텍스트 사이에 JPA 연관(`@ManyToOne`, `@OneToMany` 등)을 두지 않고 식별자 값만 참조한다 ④ `inventory`와 `delivery`에는 `api` 패키지가 없다(ADR-0007, ADR-0008) ⑤ 스케줄러(`common/scheduler`)와 웹훅 컨트롤러는 컨텍스트의 `repository`를 직접 부르지 않고 `PaymentResultCoordinator`(T200)나 서비스 인터페이스만 부른다(ADR-0009 결정 C)
-- [ ] T012 [P] `테스트/integration/RestExposureTest.java` 작성: 노출된 리소스에 `PUT`, `PATCH`, `DELETE`, 일반 `POST` 요청이 거절되는지, 재고, 결제 상태, 하위 주문 상태, 멱등키, 변경 이력, **환불과 환불 계좌**가 쓰기용 리소스로 노출되지 않는지, 재고와 배송과 멱등키와 변경 이력과 환불 계좌가 `/api` 목록에 없는지 확인한다(ADR-0008 규칙 1). 환불 경로는 취소 동작뿐이고 환불을 직접 만드는 경로가 없음을 확인한다(FR-017). 기반 단계에서는 T167의 더미 리소스로 시험하고, 실제 리소스가 생기는 스토리에서 다시 돌린다
-- [ ] T013 [P] `테스트/integration/SecurityRulesTest.java` 작성: 로그인하지 않은 요청은 로그인으로 보내고, "고객 계정은 판매 기능을, 판매자 계정은 장바구니와 주문 기능을 쓸 수 없다."를 확인하며, 사이트 간 요청 위조 방어 토큰 없는 상태 변경 요청은 거절한다(FR-002a, 헌법 원칙 II). 기반 단계에서는 T167의 더미 경로로 시험하고, 판매 기능이 생기는 US1(T055)과 장바구니·주문이 생기는 US3(T108)에서 실제 경로로 다시 돌린다
-- [ ] T014 [P] `테스트/unit/MoneyTest.java` 작성: 원 단위 정수만 쓰고 부동소수점을 쓰지 않는다. 더하기와 곱하기, 음수 거절, 오버플로 거절(헌법 원칙 IX)
-- [ ] T015 [P] `테스트/integration/IdempotencyServiceTest.java` 작성: "(범위, 키)가 유일하다. 같은 키에 내용이 다르면 거절한다." 같은 키와 같은 내용은 저장된 결과를 그대로 돌려주고, 같은 키에 다른 내용은 거절(422)하며, 같은 키의 동시 요청 100건 중 하나만 처리한다(ADR-0002)
-- [ ] T171 [P] `테스트/integration/IdempotencyLeaseTest.java` 작성(FR-009, ADR-0009 B6): 처리 중인 키에는 점유 만료 시각이 있고, 점유 시간이 지나면 다른 요청이 대행사 조회로 상태를 확인해 이어받거나 실패로 바꾼다. 처리 중인 키가 점유 시간 안에는 다른 요청이 이어받지 못한다. 키는 시도마다 새로 만든다(실패한 결과도 저장하고, 재시도는 새 키를 쓴다). 시각은 `TimeProvider`로 고정한다
-- [ ] T016 [P] `테스트/integration/AuditLogTest.java` 작성: "수정과 삭제는 하지 않는다. 개인정보와 카드 정보는 담지 않는다." 이전 상태는 선택(첫 기록은 없음) (FR-016)
-- [ ] T017 [P] `테스트/integration/FileStorageTest.java` 작성: "파일은 서버가 정한 이름으로 비공개 위치에 저장하고 허용 형식과 크기를 검사한다." 허용되지 않는 형식과 큰 파일은 거절한다(허용 형식과 크기 상한은 T168의 설정값이다)
-- [ ] T018 [P] `테스트/integration/ErrorResponseTest.java` 작성: 권한 없는 접근(다른 고객의 주문, 다른 판매자의 하위 주문)은 존재 여부를 알리지 않도록 404, 허용되지 않는 상태 변경은 409, 같은 멱등키에 다른 내용은 422이며, 안내 문구는 한글이다. 기반 단계에서는 T167의 더미 경로로 시험하고, 실제 경로에서는 T055, T108에서 다시 돌린다
-- [ ] T169 [P] `테스트/unit/TimeInjectionRuleTest.java` 작성(review.md W-09): `src/main`의 질의(`@Query`, 네이티브 SQL)에 `now()`, `current_timestamp`가 없고 시각은 파라미터로 받는지 정적으로 검사한다(마이그레이션의 기본값 정의는 제외)
-- [ ] T173 [P] `테스트/unit/PublicIdTest.java` 작성(review.md W-07): 외부에 내보내는 개체(계정, 판매자 정보, 상품, 판매 단위, 주문, 하위 주문, 결제, 환불, 문제 신고)의 `public_id`가 유일하고 추측하기 어려운 값이며, 응답에는 내부 식별자가 나오지 않고 `public_id`만 나온다
+- [X] T167 [P] `테스트/support/DummyEndpointsConfig.java` 작성: 시험 프로필에서만 켜지는 더미 컨트롤러와 더미 리소스(고객 전용, 판매자 전용, 운영자 전용 경로, 존재하지 않는 주문 조회, 허용되지 않는 전이 요청, 같은 멱등키 다른 내용 요청). T012, T013, T018이 실제 엔드포인트가 생기기 전에도 공허하게 통과하지 않게 한다. 실제 엔드포인트에서는 T055(US1)와 T108(US3), T142에서 같은 시험을 다시 돌린다(review.md W-02)
+- [X] T011 [P] `테스트/unit/ArchitectureTest.java` 작성(ArchUnit): ① 다른 컨텍스트의 `repository` 패키지를 직접 쓰지 않는다 ② 백엔드에 화면 코드(`web`, `client` 패키지)가 없다(화면은 9단계의 프론트엔드 인스턴스) ③ 컨텍스트 사이에 JPA 연관(`@ManyToOne`, `@OneToMany` 등)을 두지 않고 식별자 값만 참조한다 ④ `inventory`와 `delivery`에는 `api` 패키지가 없다(ADR-0007, ADR-0008) ⑤ 스케줄러(`common/scheduler`)와 웹훅 컨트롤러는 컨텍스트의 `repository`를 직접 부르지 않고 `PaymentResultCoordinator`(T200)나 서비스 인터페이스만 부른다(ADR-0009 결정 C)
+- [X] T012 [P] `테스트/integration/RestExposureTest.java` 작성: 노출된 리소스에 `PUT`, `PATCH`, `DELETE`, 일반 `POST` 요청이 거절되는지, 재고, 결제 상태, 하위 주문 상태, 멱등키, 변경 이력, **환불과 환불 계좌**가 쓰기용 리소스로 노출되지 않는지, 재고와 배송과 멱등키와 변경 이력과 환불 계좌가 `/api` 목록에 없는지 확인한다(ADR-0008 규칙 1). 환불 경로는 취소 동작뿐이고 환불을 직접 만드는 경로가 없음을 확인한다(FR-017). 기반 단계에서는 T167의 더미 리소스로 시험하고, 실제 리소스가 생기는 스토리에서 다시 돌린다
+- [X] T013 [P] `테스트/integration/SecurityRulesTest.java` 작성: 로그인하지 않은 요청은 로그인으로 보내고, "고객 계정은 판매 기능을, 판매자 계정은 장바구니와 주문 기능을 쓸 수 없다."를 확인하며, 사이트 간 요청 위조 방어 토큰 없는 상태 변경 요청은 거절한다(FR-002a, 헌법 원칙 II). 기반 단계에서는 T167의 더미 경로로 시험하고, 판매 기능이 생기는 US1(T055)과 장바구니·주문이 생기는 US3(T108)에서 실제 경로로 다시 돌린다
+- [X] T014 [P] `테스트/unit/MoneyTest.java` 작성: 원 단위 정수만 쓰고 부동소수점을 쓰지 않는다. 더하기와 곱하기, 음수 거절, 오버플로 거절(헌법 원칙 IX)
+- [X] T015 [P] `테스트/integration/IdempotencyServiceTest.java` 작성: "(범위, 키)가 유일하다. 같은 키에 내용이 다르면 거절한다." 같은 키와 같은 내용은 저장된 결과를 그대로 돌려주고, 같은 키에 다른 내용은 거절(422)하며, 같은 키의 동시 요청 100건 중 하나만 처리한다(ADR-0002)
+- [X] T171 [P] `테스트/integration/IdempotencyLeaseTest.java` 작성(FR-009, ADR-0009 B6): 처리 중인 키에는 점유 만료 시각이 있고, 점유 시간이 지나면 다른 요청이 대행사 조회로 상태를 확인해 이어받거나 실패로 바꾼다. 처리 중인 키가 점유 시간 안에는 다른 요청이 이어받지 못한다. 키는 시도마다 새로 만든다(실패한 결과도 저장하고, 재시도는 새 키를 쓴다). 시각은 `TimeProvider`로 고정한다
+- [X] T016 [P] `테스트/integration/AuditLogTest.java` 작성: "수정과 삭제는 하지 않는다. 개인정보와 카드 정보는 담지 않는다." 이전 상태는 선택(첫 기록은 없음) (FR-016)
+- [X] T017 [P] `테스트/integration/FileStorageTest.java` 작성: "파일은 서버가 정한 이름으로 비공개 위치에 저장하고 허용 형식과 크기를 검사한다." 허용되지 않는 형식과 큰 파일은 거절한다(허용 형식과 크기 상한은 T168의 설정값이다)
+- [X] T018 [P] `테스트/integration/ErrorResponseTest.java` 작성: 권한 없는 접근(다른 고객의 주문, 다른 판매자의 하위 주문)은 존재 여부를 알리지 않도록 404, 허용되지 않는 상태 변경은 409, 같은 멱등키에 다른 내용은 422이며, 안내 문구는 한글이다. 기반 단계에서는 T167의 더미 경로로 시험하고, 실제 경로에서는 T055, T108에서 다시 돌린다
+- [X] T169 [P] `테스트/unit/TimeInjectionRuleTest.java` 작성(review.md W-09): `src/main`의 질의(`@Query`, 네이티브 SQL)에 `now()`, `current_timestamp`가 없고 시각은 파라미터로 받는지 정적으로 검사한다(마이그레이션의 기본값 정의는 제외)
+- [X] T173 [P] `테스트/unit/PublicIdTest.java` 작성(review.md W-07): 외부에 내보내는 개체(계정, 판매자 정보, 상품, 판매 단위, 주문, 하위 주문, 결제, 환불, 문제 신고)의 `public_id`가 유일하고 추측하기 어려운 값이며, 응답에는 내부 식별자가 나오지 않고 `public_id`만 나온다
 
 ### 기반 구현
 
-- [ ] T019 `src/main/resources/db/migration/V1__common.sql` 작성: `idempotency_key`, `audit_log`와 열거형 타입(`specs/001-multiseller-commerce-core/schema.sql`을 따른다). 멱등키의 `(scope, idem_key)` 유일 제약 포함. 멱등키에 **점유 만료 시각** 열을 둔다(ADR-0009 B6)
-- [ ] T020 [P] `…/common/Money.java` 작성: 원 단위 정수(`long`)를 담는 값 객체(T014를 통과시킨다. 스텁 T166을 채운다)
-- [ ] T021 [P] `…/common/TimeProvider.java` 작성: 시각 공급자(테스트에서 시간을 고정할 수 있게 한다). SQL의 `now()` 대신 이 시각을 파라미터로 넘기는 규칙을 문서화한다(T169를 통과시킨다)
-- [ ] T022 [P] `…/common/error/` 작성: 업무 예외 타입과 `GlobalExceptionHandler`(404, 409, 422 응답과 한글 문구, T018을 통과시킨다)
-- [ ] T023 [P] `…/common/idempotency/` 작성: `IdempotencyKey` 엔티티(범위, 키, 요청 내용 해시, 처리 상태(처리 중, 완료), 저장된 결과(선택), 만료 시각), `IdempotencyRepository`, `IdempotencyService`. "처리 중 → 완료"만 허용하고 완료된 키는 만료 시각이 지나면 정리 작업이 지운다(T015를 통과시킨다)
-- [ ] T172 `…/common/idempotency/IdempotencyService.java`에 점유 만료 처리 추가: 처리 중 키의 점유 만료 시각, 점유 시간이 지난 키를 다른 요청이 대행사 조회 결과로 이어받거나 실패로 바꾸는 절차, 실패 결과 저장, 시도마다 새 키 발급 규칙(만료 시간과 점유 시간은 T168의 설정값)(T171을 통과시킨다)
-- [ ] T024 [P] `…/common/audit/` 작성: `AuditLog` 엔티티(대상 종류, 대상 식별자, 이전 상태(선택), 이후 상태, 행위자, 발생 시각), `AuditLogRepository`(추가만, 수정과 삭제 메서드 없음), `AuditService`(T016을 통과시킨다)
-- [ ] T025 [P] `…/common/storage/` 작성: `FileStoragePort` 인터페이스, `LocalDiskFileStorage`(비공개 위치, 서버가 정한 이름, 형식과 크기 검사, T017을 통과시킨다)
-- [ ] T026 `…/common/security/SecurityConfig.java` 작성: 스프링 시큐리티, 사이트 간 요청 위조 방어, `PasswordEncoder`(솔트가 적용된 해시), 역할(고객, 판매자, 운영자), 메서드 보안 활성화, 웹훅 경로는 서명 검증으로 제외, 별도 프론트엔드의 허용 출처(CORS)와 위조 방어 토큰 전달 방식은 설정값으로 둔다. 기반 단계에서는 뼈대(역할, 위조 방어, 인코더, 시험용 사용자 저장소)만 만들고, 실제 계정과의 연결은 `Account`가 생기는 T042·T155에서 한다(T013, T154를 통과시킨다. `web` 패키지를 쓰지 않으므로 T011②와 맞춘다)
-- [ ] T027 [P] `…/common/config/RepositoryRestConfig.java` 작성: 어노테이션을 붙인 리포지토리만 노출, 기본 쓰기 메서드 비노출, 내부 식별자와 비밀번호 해시 필드 비노출(T012를 통과시킨다)
+- [X] T019 `src/main/resources/db/migration/V1__common.sql` 작성: `idempotency_key`, `audit_log`와 열거형 타입(`specs/001-multiseller-commerce-core/schema.sql`을 따른다). 멱등키의 `(scope, idem_key)` 유일 제약 포함. 멱등키에 **점유 만료 시각** 열을 둔다(ADR-0009 B6)
+- [X] T020 [P] `…/common/Money.java` 작성: 원 단위 정수(`long`)를 담는 값 객체(T014를 통과시킨다. 스텁 T166을 채운다)
+- [X] T021 [P] `…/common/TimeProvider.java` 작성: 시각 공급자(테스트에서 시간을 고정할 수 있게 한다). SQL의 `now()` 대신 이 시각을 파라미터로 넘기는 규칙을 문서화한다(T169를 통과시킨다)
+- [X] T022 [P] `…/common/error/` 작성: 업무 예외 타입과 `GlobalExceptionHandler`(404, 409, 422 응답과 한글 문구, T018을 통과시킨다)
+- [X] T023 [P] `…/common/idempotency/` 작성: `IdempotencyKey` 엔티티(범위, 키, 요청 내용 해시, 처리 상태(처리 중, 완료), 저장된 결과(선택), 만료 시각), `IdempotencyRepository`, `IdempotencyService`. "처리 중 → 완료"만 허용하고 완료된 키는 만료 시각이 지나면 정리 작업이 지운다(T015를 통과시킨다)
+- [X] T172 `…/common/idempotency/IdempotencyService.java`에 점유 만료 처리 추가: 처리 중 키의 점유 만료 시각, 점유 시간이 지난 키를 다른 요청이 대행사 조회 결과로 이어받거나 실패로 바꾸는 절차, 실패 결과 저장, 시도마다 새 키 발급 규칙(만료 시간과 점유 시간은 T168의 설정값)(T171을 통과시킨다)
+- [X] T024 [P] `…/common/audit/` 작성: `AuditLog` 엔티티(대상 종류, 대상 식별자, 이전 상태(선택), 이후 상태, 행위자, 발생 시각), `AuditLogRepository`(추가만, 수정과 삭제 메서드 없음), `AuditService`(T016을 통과시킨다)
+- [X] T025 [P] `…/common/storage/` 작성: `FileStoragePort` 인터페이스, `LocalDiskFileStorage`(비공개 위치, 서버가 정한 이름, 형식과 크기 검사, T017을 통과시킨다)
+- [X] T026 `…/common/security/SecurityConfig.java` 작성: 스프링 시큐리티, 사이트 간 요청 위조 방어, `PasswordEncoder`(솔트가 적용된 해시), 역할(고객, 판매자, 운영자), 메서드 보안 활성화, 웹훅 경로는 서명 검증으로 제외, 별도 프론트엔드의 허용 출처(CORS)와 위조 방어 토큰 전달 방식은 설정값으로 둔다. 기반 단계에서는 뼈대(역할, 위조 방어, 인코더, 시험용 사용자 저장소)만 만들고, 실제 계정과의 연결은 `Account`가 생기는 T042·T155에서 한다(T013, T154를 통과시킨다. `web` 패키지를 쓰지 않으므로 T011②와 맞춘다)
+- [X] T027 [P] `…/common/config/RepositoryRestConfig.java` 작성: 어노테이션을 붙인 리포지토리만 노출, 기본 쓰기 메서드 비노출, 내부 식별자와 비밀번호 해시 필드 비노출(T012를 통과시킨다)
 - T028 → 9단계(프론트엔드)로 옮겼다. 번호는 그대로 둔다.
 - T029 → 9단계(프론트엔드)로 옮겼다. 번호는 그대로 둔다.
-- [ ] T030 `specs/001-multiseller-commerce-core/contracts/rest-api.md` 골격 작성: 공통 규칙(경로 `/api`, 응답 모양, 오류 응답 404/409/422, 멱등키 헤더, 링크 규칙, 읽기 전용 프로젝션, 외부 식별자는 `public_id`). 각 사용자 스토리가 자기 API 섹션을 추가한다(ADR-0008 후속). 설계 검토로 늘어난 API(거절 사유와 재신청, 본인 입점 상태 조회, 재고 수정, 결제 시작의 고객 확인 금액, 승인 확인 POST, 결제 대기 주문 취소, 판매자 직접 취소, 문제 신고, 환불 결과 조회, 환불 재시도 결과, 환불 계좌 입력)는 해당 스토리 섹션에 넣는다. 정해진 값은 설정값을 가리킨다(T168)
+- [X] T030 `specs/001-multiseller-commerce-core/contracts/rest-api.md` 골격 작성: 공통 규칙(경로 `/api`, 응답 모양, 오류 응답 404/409/422, 멱등키 헤더, 링크 규칙, 읽기 전용 프로젝션, 외부 식별자는 `public_id`). 각 사용자 스토리가 자기 API 섹션을 추가한다(ADR-0008 후속). 설계 검토로 늘어난 API(거절 사유와 재신청, 본인 입점 상태 조회, 재고 수정, 결제 시작의 고객 확인 금액, 승인 확인 POST, 결제 대기 주문 취소, 판매자 직접 취소, 문제 신고, 환불 결과 조회, 환불 재시도 결과, 환불 계좌 입력)는 해당 스토리 섹션에 넣는다. 정해진 값은 설정값을 가리킨다(T168)
 - T031 → 9단계(프론트엔드)로 옮겼다. 번호는 그대로 둔다.
-- [ ] T168 [P] `src/main/resources/application.yml`(T002 확장)과 `docs/configuration.md` 작성(review.md W-08): 값이 정해지지 않은 항목을 **설정값으로 두고 기본값을 문서에 적는다**(값을 이 작업에서 지어내지 않는다). 항목은 목록 페이지 크기와 정렬, 입점 서류와 상품 사진의 허용 형식과 크기 상한, 결제 대행사 호출 제한 시간과 재시도 횟수와 주기와 재조회 주기, 멱등키 만료 시간과 점유 시간, 입금 기한, 고객당 결제 대기 주문 수 상한(ADR-0009 기본 3건), 한 주문의 판매 단위별 수량 상한(기본 10개), 입금 대기 유지 시간(기본 24시간)과 판매 단위별 상한, 환불 재시도 주기, 환불 계좌 암호화 키 출처(저장소에 커밋하지 않는다), 멱등키를 받는 위치(헤더)다
-- [ ] T170 [P] `테스트/support/ConcurrencyTestSupport.java` 작성(review.md W-09): 동시성 시험 공통 도구. 연결 풀 크기는 동시 스레드 수 이상, 출발 래치로 동시에 시작, 제한 시간 있는 종료 대기, 결과를 모아 확인한다. T015, T072, T075, T130, T131, T191이 쓴다
-- [ ] T174 `…/common/PublicId.java`와 열 규칙 작성: 외부 노출 개체의 `public_id`(유일, 추측 어려운 값)를 발급하고, 각 마이그레이션(T040, T041, T087, T089, T117, T201)의 해당 테이블에 `public_id` 열과 유일 제약을 함께 넣는다. 응답 프로젝션은 내부 식별자를 쓰지 않는다(T173을 통과시킨다)
+- [X] T168 [P] `src/main/resources/application.yml`(T002 확장)과 `docs/configuration.md` 작성(review.md W-08): 값이 정해지지 않은 항목을 **설정값으로 두고 기본값을 문서에 적는다**(값을 이 작업에서 지어내지 않는다). 항목은 목록 페이지 크기와 정렬, 입점 서류와 상품 사진의 허용 형식과 크기 상한, 결제 대행사 호출 제한 시간과 재시도 횟수와 주기와 재조회 주기, 멱등키 만료 시간과 점유 시간, 입금 기한, 고객당 결제 대기 주문 수 상한(ADR-0009 기본 3건), 한 주문의 판매 단위별 수량 상한(기본 10개), 입금 대기 유지 시간(기본 24시간)과 판매 단위별 상한, 환불 재시도 주기, 환불 계좌 암호화 키 출처(저장소에 커밋하지 않는다), 멱등키를 받는 위치(헤더)다
+- [X] T170 [P] `테스트/support/ConcurrencyTestSupport.java` 작성(review.md W-09): 동시성 시험 공통 도구. 연결 풀 크기는 동시 스레드 수 이상, 출발 래치로 동시에 시작, 제한 시간 있는 종료 대기, 결과를 모아 확인한다. T015, T072, T075, T130, T131, T191이 쓴다
+- [X] T174 `…/common/PublicId.java`와 열 규칙 작성: 외부 노출 개체의 `public_id`(유일, 추측 어려운 값)를 발급하고, 각 마이그레이션(T040, T041, T087, T089, T117, T201)의 해당 테이블에 `public_id` 열과 유일 제약을 함께 넣는다. 응답 프로젝션은 내부 식별자를 쓰지 않는다(T173을 통과시킨다)
 
 **체크포인트**: 기반이 준비됨. 이제 사용자 스토리를 시작할 수 있다(US1을 먼저 하고 US2는 US1 뒤에 한다).
 

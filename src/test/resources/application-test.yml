@@ -1,3 +1,8 @@
+spring:
+  flyway:
+    # 시험 전용 테이블(dummy_note)은 시험 폴더에서만 만든다.
+    locations: classpath:db/migration,classpath:db/test-migration
+
 shopflow:
   payment:
     # 테스트에서는 결제 대행사 대신 가짜 구현을 쓴다(T070).
